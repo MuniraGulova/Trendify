@@ -1,9 +1,6 @@
 [global]
 showWarningOnDirectExecution = false
 
-[client]
-caching = false
-
 [browser]
 gatherUsageStats = false
 
