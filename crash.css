@@ -1,0 +1,917 @@
+import streamlit as st
+import base64
+import os
+
+# Настройка страницы
+st.set_page_config(layout="wide")
+
+# CSS для фиксации видео, контента и боковой панели
+st.markdown("""
+    <style>
+        /* Скрываем стандартные элементы Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            margin-top: 40px;
+        }
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .bg-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+        }
+        .fon {
+            background: rgba(255, 255, 255, 0.159);
+            backdrop-filter: blur(10px);
+            width: 50%;
+            max-width: 720px;
+            height: auto;
+            position: absolute;
+            left: 45%;
+            top: 27%;
+            border-radius: 30px;
+            padding: 20px;
+            z-index: 1;
+        }
+        .custom-text {
+            color: rgb(255, 255, 255);
+            width: 100%;
+            font-size: 10px;
+            font-family: Orbitron, sans-serif;
+            line-height: 40px;
+            margin: 0;
+        }
+        /* Стили для кнопки */
+        :root {
+            --glitter: url("https://assets.codepen.io/13471/silver-glitter-background.png");
+        }
+        .sparkles-container {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            z-index: 2;
+        }
+        .sparkles {
+            --shadows: 0%;
+            --shadowl: 0%;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            border-radius: 5em;
+            background: linear-gradient(
+                0deg,
+                hsl(210, 20%, 90%) 0%,
+                hsl(210, 50%, 80%) 5%,
+                hsl(210, 100%, 60%) 15%,
+                hsl(210, 50%, 20%) 40%,
+                hsl(210, 30%, 30%) 90%
+            );
+            background-size: 200% 300%;
+            background-position: 0% 0%;
+            box-shadow: inset 0 0 2px hsl(210, 30%, 20%);
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+            place-items: center;
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+            transform: translate(0px);
+            transition: all 0.5s cubic-bezier(0.77, 0, 0.18, 1);
+            box-shadow: 
+                0 0.25em 0.3em -0.2em hsl(210, 0%, 0%, 0.5),
+                0 0.35em 0.75em hsl(210, 0%, 0%, 0.75);
+            text-decoration: none;
+        }
+        .sparkles::before,
+        .sparkles::after {
+            --gradientPos: 50% 100%;
+            content: " ";
+            grid-column: 1;
+            grid-row: 1;
+            width: 100%;
+            height: 100%;
+            transition: inherit;
+        }
+        .sparkles:before {
+            inset: 0;
+            position: absolute;
+            transform: translate3d(0, 0, 0.01px);
+            border-radius: inherit;
+            background-image: var(--glitter), var(--glitter),
+                linear-gradient(180deg, hsl(210, 20%, 10%) 0%, hsl(210, 20%, 90%) 80%);
+            background-size: 300px 170px, 280px 130px, 200% 200%;
+            background-blend-mode: multiply, multiply, overlay;
+            background-position: 0px 0px, 0px 0px, var(--gradientPos);
+            background-repeat: repeat;
+            mix-blend-mode: color-dodge;
+            filter: brightness(2) contrast(0.75);
+            animation: bubble 20s linear infinite;
+            animation-play-state: paused;
+            opacity: 0.5;
+            box-shadow: inset 0 -8px 10px -7px hsl(210, 70%, 80%, 0.75);
+        }
+        .sparkles:after {
+            background-image: radial-gradient(
+                    ellipse at center 70%,
+                    hsl(210, 20%, 99%, 0.8) 5%,
+                    hsl(210, 100%, 60%, 1) 20%,
+                    transparent 50%,
+                    transparent 200%
+                ),
+                linear-gradient(
+                    90deg,
+                    hsl(210, 80%, 10%, 1) -10%,
+                    transparent 25%,
+                    transparent 75%,
+                    hsl(210, 80%, 10%, 1) 110%
+                );
+            box-shadow: inset 0 0.25em 0.75em rgba(0, 0, 0, 1),
+                inset 0 -0.05em 0.2em rgba(255, 255, 255, 0.4),
+                inset 0 -1px 3px hsl(210, 80%, 50%, 0.75);
+            background-blend-mode: darken;
+            background-repeat: no-repeat;
+            background-size: 180% 80%, cover;
+            background-position: center 220%;
+            mix-blend-mode: hard-light;
+            filter: blur(5px);
+            opacity: 0;
+        }
+        .sparkles:hover {
+            --shadows: 90%;
+            --shadowl: 80%;
+            background-position: 100% 100%;
+            transition: all 0.2s cubic-bezier(0.17, 0.84, 0.44, 1);
+            box-shadow: 
+                0 -0.2em 1.5em hsl(210, 100%, 60%, 0.3),
+                0 0.5em 2em hsl(210, 100%, 70%, 0.55),
+                0 0.25em 0.3em -0.2em hsl(210, 0%, 0%, 1),
+                0 0.35em 0.75em hsl(210, 0%, 0%, 1),
+                0 0.25em 0.5em -0.3em hsl(210, 30%, 99%, 1),
+                0 0.25em 0.5em hsl(210, 20%, 30%, 0.35),
+                inset 0 -2px 5px -2px rgba(255, 255, 255, 0.5);
+        }
+        .sparkles:hover:before {
+            --gradientPos: 50% 50%;
+            animation-play-state: running;
+            filter: brightness(2) contrast(1);
+            box-shadow: inset 0 -5px 10px -4px hsl(210, 70%, 80%, 0.3);
+            opacity: 0.8;
+        }
+        .sparkles:hover:after {
+            opacity: 0.8;
+            transform: translateY(0px);
+        }
+        .sparkles span {
+            grid-column: 1;
+            grid-row: 1;
+            background-image: linear-gradient(
+                hsl(210, 20%, 85%) 0%,
+                hsl(210, 30%, 80%) 19%,
+                hsl(210, 40%, 75%) 30%,
+                hsl(210, 20%, 98%) 43%,
+                hsl(210, 100%, 60%, 1) 51%,
+                hsl(210, 50%, 85%, 1) 52%,
+                rgb(255, 255, 255) 100%
+            );
+            background-size: 1em 3.45em;
+            color: rgb(214, 222, 226);
+            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text;
+            filter: drop-shadow(0 0 0.05em rgba(128, 128, 128, 0.5)) drop-shadow(0 0.05em 0.05em rgba(128, 128, 128, 0.5));
+            transition-timing-function: inherit;
+            transition-duration: inherit;
+            transition-delay: 0s;
+            padding: 0.75em 1.5em;
+            transform: translateY(0);
+            z-index: 10;
+        }
+        .sparkles:hover span {
+            background-position-y: -100%;
+        }
+        .sparkles:active {
+            transform: translateY(0.075em);
+            box-shadow: 
+                0 -0.2em 1.5em hsl(210, 100%, 60%, 0.4),
+                0 0.5em 2em hsl(210, 100%, 70%, 0.65),
+                0 0.15em 0.3em -0.2em hsl(210, 0%, 0%, 1),
+                0 0.25em 0.75em hsl(210, 0%, 0%, 1),
+                0 0.25em 0.5em -0.3em hsl(210, 30%, 99%, 1),
+                0 0.25em 0.5em hsl(210, 20%, 30%, 0.45),
+                inset 0 -2px 5px -2px rgba(255, 255, 255, 0.65);
+            transition-duration: 0.1s;
+        }
+        .sparkles:active:before {
+            opacity: 1;
+            filter: brightness(3) contrast(0.75);
+            animation-duration: 8s;
+        }
+        .sparkles:active:after {
+            filter: brightness(1.35) contrast(0.8) blur(5px);
+        }
+        @keyframes bubble {
+            0% {
+                background-position: 0px 340px, 0px 130px, var(--gradientPos);
+            }
+            100% {
+                background-position: 0px 0px, 0px 0px, var(--gradientPos);
+            }
+        }
+        /* Стили для боковой панели */
+        .settings-panel-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 30px;
+            z-index: 3;
+        }
+        .settings-panel {
+            position: absolute;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            color: rgb(214, 222, 226);
+            box-shadow: 0 0 20px hsla(210, 100%, 55%, 0.47);
+            transition: left 0.3s ease-in-out 0.5s; /* Добавлена задержка закрытия */
+            overflow-y: auto;  /* Включаем вертикальный скролл */
+            overflow-x: hidden; /* Скрываем горизонтальный скролл */
+            scrollbar-width: thin; /* Для Firefox */
+            max-height: 100vh; /* Максимальная высота */
+            padding-bottom: 20px; /* Отступ снизу */
+
+        }
+
+        .settings-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -5px;
+            width: 6px;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                hsl(210, 100%, 80%),
+                transparent
+            );
+            box-shadow:
+                0 0 15px hsl(210, 100%, 60%),
+                0 0 30px hsl(210, 100%, 60%);
+            opacity: 0.7;
+            filter: blur(1px);
+        }
+        .settings-panel:hover::before {
+            opacity: 0.9;
+            width: 8px;
+            right: -7px;
+        }
+
+        .panel-toggle {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+            background: black;
+            color: hsl(210, 100%, 60%);
+            border: none;
+            border-radius: 0 10px 10px 0;
+            width: 20px;
+            height: 30px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 4;
+        }
+        .panel-toggle:hover {
+            background: hsl(210, 100%, 60%, 0.2);
+        }
+
+        .panel-toggle:hover + .settings-panel,
+        .settings-panel:hover {
+            left: 0;
+            transition-delay: 0s; /* Убираем задержку при открытии */
+        }
+        .settings-panel h3 {
+            color: hsl(210, 100%, 60%);
+            font-family: Orbitron, sans-serif;
+            margin-bottom: 15px;
+        }
+        .settings-panel label {
+            color: rgb(214, 222, 226);
+            font-family: Orbitron, sans-serif;
+            font-size: 14px;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .settings-panel select {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgb(214, 222, 226);
+            border: 1px solid hsl(210, 100%, 60%);
+            border-radius: 5px;
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 10px;
+            font-family: Orbitron, sans-serif;
+        }
+        .date-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent,
+                rgba(192, 192, 192, 0.6),
+                rgba(255, 255, 255, 0.8),
+                rgba(192, 192, 192, 0.6),
+                transparent);
+            margin: 20px 0;
+            border: none;
+            box-shadow: 0 1px 2px rgba(255, 255, 255, 0.1);
+        }
+                .custom-input {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: rgb(214, 222, 226);
+            border: 1px solid hsl(210, 100%, 60%);
+            border-radius: 5px;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            font-family: Orbitron, sans-serif;
+        }
+
+        .custom-radio, .custom-checkbox {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .custom-radio label, .custom-checkbox label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .custom-radio label:hover, .custom-checkbox label:hover {
+            background-color: hsl(210, 100%, 60%, 0.1);
+        }
+
+        .custom-radio input[type="radio"],
+        .custom-checkbox input[type="checkbox"] {
+            accent-color: hsl(210, 100%, 60%);
+            width: 16px;
+            height: 16px;
+        }
+
+        .range-slider, .single-slider {
+            margin-bottom: 20px;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: hsl(210, 100%, 60%);
+            cursor: pointer;
+        }
+
+        .slider-values, .slider-value {
+            display: flex;
+            justify-content: space-between;
+            color: rgb(214, 222, 226);
+            font-size: 13px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid hsl(210, 100%, 60%, 0.2);
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        /* Стилизация скроллбара для WebKit (Chrome, Safari) */
+        .settings-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .settings-panel::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .settings-panel::-webkit-scrollbar-thumb {
+            background: linear-gradient(
+                hsl(210, 100%, 60%),
+                hsl(210, 80%, 50%)
+            );
+            border-radius: 3px;
+        }
+
+        .settings-panel::-webkit-scrollbar-thumb:hover {
+            background: hsl(210, 100%, 60%);
+        }
+     </style>
+""", unsafe_allow_html=True)
+
+
+# Функция для кодирования видео в base64
+def get_base64_video(file_path):
+    if not os.path.exists(file_path):
+        st.error(f"Видео не найдено по пути: {file_path}")
+        return None
+    with open(file_path, "rb") as video_file:
+        encoded = base64.b64encode(video_file.read()).decode()
+    return f"data:video/mp4;base64,{encoded}"
+
+
+# Путь к видео
+video_path = "static/img/live.mp4"
+video_base64 = get_base64_video(video_path)
+
+# Видео и контент
+if video_base64:
+    st.markdown(f"""
+    <div class="video-container">
+        <video class="bg-video" autoplay loop muted playsinline>
+            <source src="{video_base64}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="fon">
+            <p class="custom-text">
+                <br><u>Представьте мир </u>
+            </p>
+        </div>
+        <div class="sparkles-container">
+            <a href="?action=generate" class="sparkles">
+                <span>Generate Site</span>
+            </a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ---------------------- Компонеты панели :>
+st.markdown("""
+<div class="settings-panel-container">
+    <div class="panel-toggle">></div>
+    <div class="settings-panel">
+        <h3>Настройки</h3>
+        <label>Выберите месяц и год</label>
+        <div class="date-selector">
+            <select id="month-selector">
+                <option value="1">Январь</option>
+                <option value="2">Февраль</option>
+                <option value="3">Март</option>
+                <option value="4">Апрель</option>
+                <option value="5" selected>Май</option>
+                <option value="6">Июнь</option>
+                <option value="7">Июль</option>
+                <option value="8">Август</option>
+                <option value="9">Сентябрь</option>
+                <option value="10">Октябрь</option>
+                <option value="11">Ноябрь</option>
+                <option value="12">Декабрь</option>
+            </select>
+            <select id="year-selector">
+                <option value="2020">2020</option>
+                <option value="2021">2021</option>
+                <option value="2022">2022</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025" selected>2025</option>
+            </select>
+        </div>
+            <div class="section">
+                <div class="divider"></div>
+                <label>Количество топ-рекомендаций:</label>
+                <input type="number" min="1" max="50" class="custom-input" id="top-recommendations" oninput="handleTopRecommendationsChange(this)">
+            </div>
+            <div class="section">
+                <div class="divider"></div>
+                <label>Дополнительные метрики:</label>
+                <div class="custom-checkbox">
+                    <label>
+                        <input type="checkbox" name="metrics" value="avg-viewers">
+                        <span>Avg_viewers</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="metrics" value="peak-viewers">
+                        <span>Peak_viewers</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="metrics" value="avg-viewer-ratio">
+                        <span>Avg_viewer_ratio</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="metrics" value="hours-watched">
+                        <span>Hours_watched</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="metrics" value="hours-streamed">
+                        <span>Hours_streamed</span>
+                    </label>
+                </div>
+            </div>
+            <div class="divider"></div>
+            <div class="section">
+                <h4>3. Игра для анализа</h4>
+                <label>Название игры:</label>
+                <input type="text" id="game-name" class="custom-input" placeholder="Введите название игры">
+            </div>
+    </div>
+</div>
+    <script>
+        // Обработчики для обновления значений слайдеров
+        document.getElementById('avg-viewers-min').addEventListener('input', function() {
+            document.getElementById('avg-viewers-min-value').textContent =
+                parseInt(this.value).toLocaleString();
+        });
+
+        document.getElementById('avg-viewers-max').addEventListener('input', function() {
+            document.getElementById('avg-viewers-max-value').textContent =
+                parseInt(this.value).toLocaleString();
+        });
+
+        document.getElementById('growth-threshold').addEventListener('input', function() {
+            document.getElementById('growth-threshold-value').textContent = this.value;
+        });
+
+        document.getElementById('competition').addEventListener('input', function() {
+            document.getElementById('competition-value').textContent = this.value;
+        });
+
+        // Обработчик для поля ввода игры
+        document.getElementById('game-name').addEventListener('input', function() {
+            console.log('Игра для анализа:', this.value);
+        });
+    </script>
+""", unsafe_allow_html=True)
+
+
+
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    /* Скрываем стандартные элементы Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: black;
+        margin-top: 40px;
+    }
+    .video-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+    }
+    .bg-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+    }
+    .fon {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        width: 50%;
+        max-width: 720px;
+        height: auto;
+        position: absolute;
+        left: 45%;
+        top: 27%;
+        border-radius: 30px;
+        padding: 20px;
+        z-index: 1;
+    }
+    .custom-text {
+        color: rgb(255, 255, 255);
+        width: 100%;
+        font-size: 10px;
+        font-family: Orbitron, sans-serif;
+        line-height: 40px;
+        margin: 0;
+    }
+    /* Стили для кнопки */
+    :root {
+        --glitter: url("https://assets.codepen.io/13471/silver-glitter-background.png");
+    }
+    .sparkles-container {
+        position: fixed;
+        top: 60px;
+        right: 20px;
+        z-index: 2;
+    }
+    .sparkles {
+        --shadows: 0%;
+        --shadowl: 0%;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        border-radius: 5em;
+        background: linear-gradient(
+            0deg,
+            hsl(210, 20%, 90%) 0%,
+            hsl(210, 50%, 80%) 5%,
+            hsl(210, 100%, 60%) 15%,
+            hsl(210, 50%, 20%) 40%,
+            hsl(210, 30%, 30%) 90%
+        );
+        background-size: 200% 300%;
+        background-position: 0% 0%;
+        box-shadow: inset 0 0 2px hsl(210, 30%, 20%);
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        place-items: center;
+        padding: 0;
+        position: relative;
+        overflow: hidden;
+        transform: translate(0px);
+        transition: all 0.5s cubic-bezier(0.77, 0, 0.18, 1);
+        box-shadow:
+            0 0.25em 0.3em -0.2em hsl(210, 0%, 0%, 0.5),
+            0 0.35em 0.75em hsl(210, 0%, 0%, 0.75);
+        text-decoration: none;
+    }
+    .sparkles::before,
+    .sparkles::after {
+        --gradientPos: 50% 100%;
+        content: " ";
+        grid-column: 1;
+        grid-row: 1;
+        width: 100%;
+        height: 100%;
+        transition: inherit;
+    }
+    .sparkles:before {
+        inset: 0;
+        position: absolute;
+        transform: translate3d(0, 0, 0.01px);
+        border-radius: inherit;
+        background-image: var(--glitter), var(--glitter),
+            linear-gradient(180deg, hsl(210, 20%, 10%) 0%, hsl(210, 20%, 90%) 80%);
+        background-size: 300px 170px, 280px 130px, 200% 200%;
+        background-blend-mode: multiply, multiply, overlay;
+        background-position: 0px 0px, 0px 0px, var(--gradientPos);
+        background-repeat: repeat;
+        mix-blend-mode: color-dodge;
+        filter: brightness(2) contrast(0.75);
+        animation: bubble 20s linear infinite;
+        animation-play-state: paused;
+        opacity: 0.5;
+        box-shadow: inset 0 -8px 10px -7px hsl(210, 70%, 80%, 0.75);
+    }
+    .sparkles:after {
+        background-image: radial-gradient(
+                ellipse at center 70%,
+                hsl(210, 20%, 99%, 0.8) 5%,
+                hsl(210, 100%, 60%, 1) 20%,
+                transparent 50%,
+                transparent 200%
+            ),
+            linear-gradient(
+                90deg,
+                hsl(210, 80%, 10%, 1) -10%,
+                transparent 25%,
+                transparent 75%,
+                hsl(210, 80%, 10%, 1) 110%
+            );
+        box-shadow: inset 0 0.25em 0.75em rgba(0, 0, 0, 1),
+            inset 0 -0.05em 0.2em rgba(255, 255, 255, 0.4),
+            inset 0 -1px 3px hsl(210, 80%, 50%, 0.75);
+        background-blend-mode: darken;
+        background-repeat: no-repeat;
+        background-size: 180% 80%, cover;
+        background-position: center 220%;
+        mix-blend-mode: hard-light;
+        filter: blur(5px);
+        opacity: 0;
+    }
+    .sparkles:hover {
+        --shadows: 90%;
+        --shadowl: 80%;
+        background-position: 100% 100%;
+        transition: all 0.2s cubic-bezier(0.17, 0.84, 0.44, 1);
+        box-shadow:
+            0 -0.2em 1.5em hsl(210, 100%, 60%, 0.3),
+            0 0.5em 2em hsl(210, 100%, 70%, 0.55),
+            0 0.25em 0.3em -0.2em hsl(210, 0%, 0%, 1),
+            0 0.35em 0.75em hsl(210, 0%, 0%, 1),
+            0 0.25em 0.5em -0.3em hsl(210, 30%, 99%, 1),
+            0 0.25em 0.5em hsl(210, 20%, 30%, 0.35),
+            inset 0 -2px 5px -2px rgba(255, 255, 255, 0.5);
+    }
+    .sparkles:hover:before {
+        --gradientPos: 50% 50%;
+        animation-play-state: running;
+        filter: brightness(2) contrast(1);
+        box-shadow: inset 0 -5px 10px -4px hsl(210, 70%, 80%, 0.3);
+        opacity: 0.8;
+    }
+    .sparkles:hover:after {
+        opacity: 0.8;
+        transform: translateY(0px);
+    }
+    .sparkles span {
+        grid-column: 1;
+        grid-row: 1;
+        background-image: linear-gradient(
+            hsl(210, 20%, 85%) 0%,
+            hsl(210, 30%, 80%) 19%,
+            hsl(210, 40%, 75%) 30%,
+            hsl(210, 20%, 98%) 43%,
+            hsl(210, 100%, 60%, 1) 51%,
+            hsl(210, 50%, 85%, 1) 52%,
+            rgb(255, 255, 255) 100%
+        );
+        background-size: 1em 3.45em;
+        color: rgb(214, 222, 226);
+        -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text;
+        filter: drop-shadow(0 0 0.05em rgba(128, 128, 128, 0.5)) drop-shadow(0 0.05em 0.05em rgba(128, 128, 128, 0.5));
+        transition-timing-function: inherit;
+        transition-duration: inherit;
+        transition-delay: 0s;
+        padding: 0.75em 1.5em;
+        transform: translateY(0);
+        z-index: 10;
+    }
+    .sparkles:hover span {
+        background-position-y: -100%;
+    }
+    .sparkles:active {
+        transform: translateY(0.075em);
+        box-shadow:
+            0 -0.2em 1.5em hsl(210, 100%, 60%, 0.4),
+            0 0.5em 2em hsl(210, 100%, 70%, 0.65),
+            0 0.15em 0.3em -0.2em hsl(210, 0%, 0%, 1),
+            0 0.25em 0.75em hsl(210, 0%, 0%, 1),
+            0 0.25em 0.5em -0.3em hsl(210, 30%, 99%, 1),
+            0 0.25em 0.5em hsl(210, 20%, 30%, 0.45),
+            inset 0 -2px 5px -2px rgba(255, 255, 255, 0.65);
+        transition-duration: 0.1s;
+    }
+    .sparkles:active:before {
+        opacity: 1;
+        filter: brightness(3) contrast(0.75);
+        animation-duration: 8s;
+    }
+    .sparkles:active:after {
+        filter: brightness(1.35) contrast(0.8) blur(5px);
+    }
+    @keyframes bubble {
+        0% {
+            background-position: 0px 340px, 0px 130px, var(--gradientPos);
+        }
+        100% {
+            background-position: 0px 0px, 0px 0px, var(--gradientPos);
+        }
+    }
+    @keyframes neon-glow {
+        0% { text-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 100%, 60%); }
+        50% { text-shadow: 0 0 10px hsl(210, 100%, 60%), 0 0 20px hsl(210, 100%, 60%); }
+        100% { text-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 100%, 60%); }
+    }
+    /* Стили для боковой панели */
+    .stSidebar {
+        background: rgba(0, 0, 0, 0.05);
+        backdrop-filter: blur(15px);
+        color: rgb(214, 222, 226);
+        padding: 20px;
+        width: 300px;
+        box-shadow: 0 0 20px hsl(228, 87%, 50%);
+    }
+    /* Стили для заголовка "Настройки" */
+    .stSidebar h1 {
+        color: hsl(210, 100%, 60%);
+        text-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 100%, 60%), 0 0 15px hsl(230, 93%, 58%);
+        text-transform: uppercase;
+        font-family: Orbitron, sans-serif;
+        font-size: 35px;
+        margin-bottom: 15px;
+        animation: neon-glow 1.5s ease-in-out infinite;
+    }
+    /* Стили для виджетов Streamlit */
+    .stSelect select {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgb(214, 222, 226);
+        border: 2px solid hsl(210, 100%, 60%);
+        border-radius: 5px;
+        font-family: Orbitron, sans-serif;
+        width: 100%;
+        padding: 5px;
+        box-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 100%, 60%);
+    }
+    .stSelect select:hover {
+        box-shadow: 0 0 10px hsl(210, 100%, 60%), 0 0 20px hsl(210, 100%, 60%);
+    }
+    .stNumberInput input {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgba(214, 222, 226, 0.93);
+        border: 2px solid hsl(210, 100%, 60%);
+        border-radius: 5px;
+        font-family: Orbitron, sans-serif;
+        width: 100%;
+        padding: 8px;
+        box-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 96%, 52%);
+    }
+    .stNumberInput input:hover {
+        box-shadow: 0 0 10px hsl(210, 100%, 60%), 0 0 20px hsl(210, 100%, 60%);
+    }
+    .stCheckbox label {
+        color: rgb(214, 222, 226);
+        font-family: Orbitron, sans-serif;
+        font-size: 14px;
+        text-shadow: 0 0 3px hsl(210, 100%, 60%);
+    }
+    .stCheckbox input {
+        accent-color: hsl(210, 100%, 60%);
+    }
+    .stCheckbox input:checked {
+        box-shadow: 0 0 5px hsl(210, 100%, 60%), 0 0 10px hsl(210, 94%, 55%);
+    }
+    .stCheckbox input:hover {
+        box-shadow: 0 0 5px hsl(210, 100%, 60%);
+    }
+    .stTextInput input {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgb(214, 222, 226);
+        border: 2px solid hsl(210, 100%, 60%);
+        border-radius: 5px;
+        font-family: Orbitron, sans-serif;
+        width: 100%;
+        padding: 8px;
+        box-shadow: 0 0 5px hsl(210, 81%, 48%), 0 0 10px hsl(231, 91%, 36%);
+    }
+    .stTextInput input:hover {
+        box-shadow: 0 0 10px hsl(210, 89%, 49%), 0 0 20px hsl(231, 82%, 48%);
+    }
+    /* Тень текста для меток и подзаголовков */
+    .stSidebar label,
+    .stSidebar h2,
+    .stSidebar h3,
+    .stSidebar p {
+        text-shadow: 0 0 3px hsl(212, 99%, 40%);
+    }
+    /* Стили для разделителей */
+    .stSidebar hr {
+        height: 1px;
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(192, 192, 192, 0.6),
+            rgba(255, 255, 255, 0.8),
+            rgba(192, 192, 192, 0.6),
+            transparent);
+        margin: 20px 0;
+        border: none;
+        box-shadow: 0 1px 2px rgba(255, 255, 255, 0.1);
+    }

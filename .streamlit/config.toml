@@ -1,0 +1,15 @@
+[global]
+showWarningOnDirectExecution = false
+
+[client]
+caching = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#00B7EB"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "rgba(255, 255, 255, 0.1)"
+textColor = "#D6DEE2"
+font = "Orbitron"
