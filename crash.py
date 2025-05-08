@@ -9,7 +9,7 @@ import plotly.express as px
 from forecasting import run_naive, run_moving_average, run_arima, run_sarima, run_sarimax, run_lstm, run_prophet, run_orbit
 from recommendations import build_recommendations
 
-# Настройка страницы
+# Настройка страницы ^-^
 st.set_page_config(layout="wide")
 
 # Инициализация session_state для управления отображением рекомендаций
@@ -389,7 +389,6 @@ def get_base64_video(file_path):
         encoded = base64.b64encode(video_file.read()).decode()
     return f"data:video/mp4;base64,{encoded}"
 
-# Путь к видео
 video_path = "static/img/live.mp4"
 video_base64 = get_base64_video(video_path)
 
@@ -464,7 +463,7 @@ mean_cols = ['Avg_viewers', 'Peak_viewers', 'Avg_viewer_ratio', 'Hours_watched',
 agg_dict = {col: 'first' if col in first_cols else 'mean' for col in df.columns if col in first_cols + mean_cols}
 df = df.groupby(['ds', 'Game']).agg(agg_dict).reset_index()
 
-# Определяем цели и игры
+# Определяем цели и игры :)
 targets = [metric for metric, selected in [
     ('Avg_viewers', avg_viewers),
     ('Peak_viewers', peak_viewers),
