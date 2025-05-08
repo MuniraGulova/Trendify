@@ -9,11 +9,10 @@ def build_recommendations(df, combined_df, targets, top_n=5, random_n=5, weights
         weights = {metric: default_weight for metric in targets}
         weights['competition'] = 0.2  # Фиксированный вес для конкуренции
 
-    # Создаём копию объединённого DataFrame
     forecast_df = combined_df.copy()
 
     # Вычисляем конкуренцию (используем Hours_streamed как прокси)
-    forecast_df['competition'] = forecast_df.get('Hours_streamed_pred', 0) / 1000  # Нормализуем для расчёта
+    forecast_df['competition'] = forecast_df.get('Hours_streamed_pred', 0) / 1000
 
     # Вычисляем Score для каждой игры
     score_components = []
@@ -52,13 +51,11 @@ def build_recommendations(df, combined_df, targets, top_n=5, random_n=5, weights
     else:
         random_games = remaining_games
 
-    # Объединяем топовые и случайные игры
     recommended_games = pd.concat([top_games, random_games])
 
-    # Формируем пояснения
     recommendations = []
     last_date = df['ds'].max()
-    next_month = (last_date + timedelta(days=31)).strftime('%B %Y')  # Следующий месяц
+    next_month = (last_date + timedelta(days=31)).strftime('%B %Y')  # Следующий месяц ;)
     for game, row in recommended_games.iterrows():
         growth = row['Avg_viewers_growth'] if 'Avg_viewers' in targets else 0
         competition = row['competition']
