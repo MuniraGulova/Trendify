@@ -7,3 +7,5 @@ catboost~=1.2.7
 statsmodels~=0.14.4
 prophet~=1.1.6
 tqdm~=4.67.1
+tensorflow~=2.17.0
+orbit-ml==1.1.4
