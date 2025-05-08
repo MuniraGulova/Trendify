@@ -1,62 +1,14 @@
-import warnings
-
-warnings.filterwarnings("ignore")
-
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from catboost import CatBoostRegressor
+from sklearn.metrics import mean_squared_error
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from prophet import Prophet
 from orbit.models import LGT
 import itertools
-from tqdm import tqdm
-
-# Загрузка данных
-data = pd.read_csv('clean_twitch_data.csv', encoding_errors='ignore')
-df = data.copy()
-df = df.dropna(subset=['Game'])
-df['ds'] = pd.to_datetime(df[['Year', 'Month']].assign(day=1))
-
-# Определяем столбцы для агрегирования
-first_cols = ['Month', 'Year', 'Rank']
-mean_cols = ['Avg_viewers', 'Peak_viewers', 'Avg_viewer_ratio', 'Hours_watched', 'Hours_streamed']
-agg_dict = {col: 'first' if col in first_cols else 'mean' for col in df.columns if col in first_cols + mean_cols}
-df = df.groupby(['ds', 'Game']).agg(agg_dict).reset_index()
-
-# Определяем цели и игры
-targets = ['Avg_viewers', 'Peak_viewers', 'Avg_viewer_ratio', 'Hours_watched', 'Hours_streamed']
-games = df['Game'].unique()
-
-
-# Функция для вычисления метрик
-def evaluate_metrics(df, targets):
-    results = []
-    for metric in targets:
-        pred_col = f'{metric}_pred'
-        test_col = f'{metric}_test'
-        y_true = df[test_col]
-        y_pred = df[pred_col]
-        mask = (~y_true.isna()) & (~y_pred.isna())
-        y_true = y_true[mask]
-        y_pred = y_pred[mask]
-        if len(y_true) == 0:
-            result = {'Metric': metric, 'RMSE': np.nan, 'R2': np.nan, 'MAE': np.nan, 'MAPE': np.nan}
-        else:
-            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-            r2 = r2_score(y_true, y_pred)
-            mae = mean_absolute_error(y_true, y_pred)
-            mape = np.nan if (y_true == 0).any() else np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-            result = {'Metric': metric, 'RMSE': rmse, 'R2': r2, 'MAE': mae, 'MAPE': mape}
-        results.append(result)
-    return pd.DataFrame(results)
 
 
 # Проверка стационарности
@@ -65,69 +17,11 @@ def is_stationary(series, alpha=0.05):
     p = adfuller(series.dropna())[1]
     return p < alpha
 
-
-# --- Регрессионные модели с поиском гиперпараметров ---
-def split_train_pred(df, model, test_size=0.005):
-    if 'ds' in df.columns:
-        df.set_index('ds', inplace=True)
-    pred_dfs = []
-    for game in games:
-        df_game = df[df['Game'] == game]
-        if len(df_game) < 2:
-            continue
-        train_size = int(len(df_game) * (1 - test_size))
-        df_train = df_game.iloc[:train_size]
-        df_test = df_game.iloc[train_size:]
-        pred_df_game = df_test[['Game'] + targets].rename(columns={target: f'{target}(y_test)' for target in targets})
-        for target in targets:
-            X_train = df_train.drop(columns=[target, 'Game'])
-            y_train = df_train[target]
-            X_test = df_test.drop(columns=[target, 'Game'])
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            pred_df_game[f'{target}(y_pred)'] = y_pred
-        pred_dfs.append(pred_df_game)
-    return pd.concat(pred_dfs, ignore_index=True)
-
-
-# Linear Regression (без гиперпараметров, но добавим для единообразия)
-def run_linear_regression(df, test_size=0.005):
-    model = LinearRegression()
-    return split_train_pred(df, model, test_size)
-
-
-# Random Forest с поиском гиперпараметров
-def run_random_forest(df, test_size=0.005):
-    param_grid = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [None, 10, 20],
-        'min_samples_split': [2, 5],
-        'min_samples_leaf': [1, 2]
-    }
-    base_model = RandomForestRegressor(random_state=42)
-    tscv = TimeSeriesSplit(n_splits=3)
-    grid_search = GridSearchCV(base_model, param_grid, cv=tscv, scoring='neg_mean_squared_error', n_jobs=-1)
-    return split_train_pred(df, grid_search, test_size)
-
-
-# CatBoost с поиском гиперпараметров
-def run_catboost(df, test_size=0.005):
-    param_grid = {
-        'iterations': [200, 500],
-        'depth': [4, 6, 8],
-        'learning_rate': [0.01, 0.1]
-    }
-    base_model = CatBoostRegressor(verbose=0, random_state=42)
-    tscv = TimeSeriesSplit(n_splits=3)
-    grid_search = GridSearchCV(base_model, param_grid, cv=tscv, scoring='neg_mean_squared_error', n_jobs=-1)
-    return split_train_pred(df, grid_search, test_size)
-
-
 # --- Временные ряды ---
 # Naive Forecasting (без гиперпараметров)
 def run_naive(df, targets):
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -154,7 +48,7 @@ def run_naive(df, targets):
 def run_moving_average(df, targets):
     window_sizes = [3, 6, 12]  # Сетка для размера окна
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -204,7 +98,7 @@ def run_arima(df, targets):
     q = range(0, 3)
     pdq = list(itertools.product(p, d, q))
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -243,7 +137,7 @@ def run_sarima(df, targets):
     pdq = list(itertools.product(p, d, q))
     seasonal_pdq = list(itertools.product(P, D, Q, [12]))
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -288,7 +182,7 @@ def run_sarimax(df, targets):
     pdq = list(itertools.product(p, d, q))
     seasonal_pdq = list(itertools.product(P, D, Q, [12]))
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -351,7 +245,7 @@ def run_lstm(df, targets):
         'epochs': [10, 20]
     }
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
@@ -438,7 +332,7 @@ def run_orbit(df, targets):
         'regressor_col': [['year'], ['year', 'month']]
     }
     rows = []
-    for game in games:
+    for game in df['Game'].unique():
         sub = df[df['Game'] == game].copy()
         if len(sub) < 2:
             continue
