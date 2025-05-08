@@ -7,4 +7,4 @@ Features:
 - Hybrid recommendations: top and emerging games.
 - Interactive Streamlit interface for visualization and settings.
 
-<h1 style = 'text-align:center'> Hello </h1>
+<h1 style = 'color:🌼'> Hello </h1>
