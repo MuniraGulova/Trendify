@@ -8,3 +8,5 @@ Features:
 - Interactive Streamlit interface for visualization and settings.
 
 <h1 style = 'color:purple'> Hello🌼 </h1>
+streamlit link:  
+https://trendify-2egzk8tz44ww8cgs4bxpsq.streamlit.app/
